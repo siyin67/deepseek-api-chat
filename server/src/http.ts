@@ -67,12 +67,14 @@ export function sendApiError(reply: FastifyReply, error: unknown): void {
 /** 包装 async 路由，把异常交给 sendApiError。 */
 export function handler(
   fn: (request: FastifyRequest, reply: FastifyReply) => Promise<unknown>,
-): (request: FastifyRequest, reply: FastifyReply) => Promise<void> {
+): (request: FastifyRequest, reply: FastifyReply) => Promise<unknown> {
   return async (request, reply) => {
     try {
-      await fn(request, reply)
+      // 必须把返回值交给 Fastify，否则 return {...} 的路由会变成 200 + 空响应体
+      return await fn(request, reply)
     } catch (error) {
       sendApiError(reply, error)
+      return undefined
     }
   }
 }

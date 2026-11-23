@@ -143,7 +143,12 @@ export const apiRequest = async <T>(
   if (response.status === 204) {
     return undefined as T
   }
-  return (await response.json()) as T
+  // 兼容 200/201 但响应体为空的情况（例如幂等请求），避免 JSON 解析直接抛错
+  const text = await response.text()
+  if (text.trim() === '') {
+    return undefined as T
+  }
+  return JSON.parse(text) as T
 }
 
 /** 保存模型 Key：服务端先校验再加密落库，返回的只有掩码 */

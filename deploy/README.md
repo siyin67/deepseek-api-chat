@@ -108,8 +108,8 @@ docker compose down                 # 停止（保留数据卷）
 docker compose down -v              # 停止并删除数据卷（会清空全部会话与账号！）
 
 # 备份 / 恢复数据库
-docker compose exec -T db pg_dump -U chatdemo chatdemo > backup.sql
-cat backup.sql | docker compose exec -T db psql -U chatdemo -d chatdemo
+docker compose exec -T db pg_dump -U deepseekchat deepseekchat > backup.sql
+cat backup.sql | docker compose exec -T db psql -U deepseekchat -d deepseekchat
 ```
 
 ## 升级
@@ -127,8 +127,8 @@ docker compose up -d --build
 | 变量 | 必填 | 默认 | 说明 |
 | --- | --- | --- | --- |
 | `SITE_ADDRESS` | 否 | `:80` | Caddy 监听地址。填域名走自动 HTTPS，填 `:80` 只开 HTTP |
-| `POSTGRES_DB` | 否 | `chatdemo` | 数据库名 |
-| `POSTGRES_USER` | 否 | `chatdemo` | 数据库用户 |
+| `POSTGRES_DB` | 否 | `deepseekchat` | 数据库名 |
+| `POSTGRES_USER` | 否 | `deepseekchat` | 数据库用户 |
 | `POSTGRES_PASSWORD` | **是** | — | 数据库密码，请改为强密码 |
 | `DATABASE_URL` | **是**（compose 内自动拼） | — | 应用侧数据库连接串 |
 | `DATABASE_POOL_SIZE` | 否 | `10` | 连接池上限 |

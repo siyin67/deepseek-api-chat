@@ -27,6 +27,7 @@ export const useAuth = create<AuthState>(() => ({
   modelKey: null,
 }))
 
+// 键名沿用旧前缀：改名会让已登录用户被静默登出，与应用显示名无关。
 const TOKEN_KEY = 'chat-demo:auth-token'
 
 const readToken = (): string | null => {

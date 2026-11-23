@@ -1,9 +1,9 @@
 {
-  "name": "chat-demo-server",
+  "name": "deepseek-api-chat-server",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "chat-demo 的服务端：账号、会话持久化、模型请求转发。",
+  "description": "deepseek-api-chat 的服务端：账号、会话持久化、模型请求转发。",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",

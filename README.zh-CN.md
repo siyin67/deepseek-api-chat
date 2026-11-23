@@ -1,7 +1,6 @@
-# chat-demo
+# DeepSeek API Chat
 
 [English](README.md) | 简体中文
-
 
 基于 DeepSeek API 的聊天应用，已改造为可自托管的服务形态：账号登录、会话与消息服务端存储、模型请求由服务端转发。浏览器不持有模型 API Key，只与本站的 `/api` 通信。
 
@@ -60,19 +59,18 @@ Docker 部署文件位于 [`deploy/`](deploy/README.md)：多阶段 `Dockerfile`
 
 ## 开发
 
-| 命令            | 用途                     |
-| --------------- | ------------------------ |
-| `pnpm dev`    | 启动前端开发服务器 8090  |
-| `pnpm build`  | 构建前端到 `dist/`     |
+| 命令          | 用途                  |
+| ------------- | --------------------- |
+| `pnpm dev`    | 启动前端开发服务器 8090 |
+| `pnpm build`  | 构建前端到 `dist/`    |
 | `pnpm type`   | 前端 TypeScript 类型检查 |
-| `pnpm lint`   | oxlint 检查              |
-| `pnpm format` | oxfmt 格式化             |
+| `pnpm lint`   | oxlint 检查           |
+| `pnpm format` | oxfmt 格式化          |
 
 [rspack.config.ts](rspack.config.ts) 在开发时把 `/api` 代理到 `http://127.0.0.1:3000`；可用 `createConfig({ devServer })` 自定义。
 
 ```text
 deploy/                Docker、反向代理、环境变量模板
-docs/                  服务端化改造的设计与取舍记录
 server/                API 服务（Fastify + PostgreSQL）
   src/config.ts        环境变量校验
   src/crypto.ts        密码哈希、登录凭证、Key 加密

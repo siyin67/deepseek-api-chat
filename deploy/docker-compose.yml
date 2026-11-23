@@ -1,4 +1,4 @@
-name: chat-demo
+name: deepseek-api-chat
 
 services:
   # PostgreSQL：会话、消息与账号的唯一真相源；数据放命名卷持久化
@@ -6,13 +6,13 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-chatdemo}
-      POSTGRES_USER: ${POSTGRES_USER:-chatdemo}
+      POSTGRES_DB: ${POSTGRES_DB:-deepseekchat}
+      POSTGRES_USER: ${POSTGRES_USER:-deepseekchat}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?请在 deploy/.env 中设置 POSTGRES_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-chatdemo} -d ${POSTGRES_DB:-chatdemo}']
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-deepseekchat} -d ${POSTGRES_DB:-deepseekchat}']
       interval: 10s
       timeout: 5s
       retries: 10
@@ -26,7 +26,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: '3000'
-      DATABASE_URL: postgres://${POSTGRES_USER:-chatdemo}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-chatdemo}
+      DATABASE_URL: postgres://${POSTGRES_USER:-deepseekchat}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-deepseekchat}
       DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-10}
       # 模型 Key 的加密主密钥：只在服务端使用，丢失后已保存的 Key 无法解密
       APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:?请先执行 openssl rand -base64 32 并写入 deploy/.env}

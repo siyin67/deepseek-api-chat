@@ -1,4 +1,4 @@
-# chat-demo 服务端化改造方案
+# deepseek-api-chat 服务端化改造方案
 
 > 版本：v1（改造前方案稿，实现已完成）
 >
@@ -8,7 +8,7 @@
 > 3. `Dockerfile`、`docker-compose.yml`、`.env.example` 统一放在 `deploy/` 下，而非仓库根目录；
 > 4. 运行时基础镜像为 `node:22-alpine`；账号体系为「邮箱 + 密码，可开关注册」。
 >
-> 范围：仓库根（原 `chat-demo/`）+ 新增 `server/`、`deploy/`
+> 范围：仓库根（原 `chat-demo/`，项目现已更名为 `deepseek-api-chat`）+ 新增 `server/`、`deploy/`。下文出现的 `chat-demo/` 均为改造前的目录名，属历史记录。
 >
 > 实现期修订：原计划的 `shared/` 共用层**未采纳**——为避免移动现有前端模块（保持「改动集中、可回滚」），
 > 服务端自持一份上下文拼装实现 `server/src/context.ts`（与 `src/services/chat/reply.ts` 同构，文件头已注明需同步维护）。

@@ -18,6 +18,8 @@ type Settings = {
   siderCollapsed: boolean
 }
 
+// 前缀沿用旧名 `chat-demo:`：这些只是 localStorage 的键名，改前缀会让老用户的语言、主题、
+// 位置等设置全部丢失，与应用显示名无关。
 const KEYS = {
   locale: 'chat-demo:locale',
   location: 'chat-demo:location',

@@ -1,4 +1,4 @@
-# chat-demo
+# DeepSeek API Chat
 
 English | [简体中文](README.zh-CN.md)
 
@@ -71,7 +71,6 @@ Docker deployment files live in [`deploy/`](deploy/README.md): a multi-stage `Do
 
 ```text
 deploy/                Docker, reverse proxy, environment template
-docs/                  Design notes for the self-hosted migration
 server/                API server (Fastify + PostgreSQL)
   src/config.ts        Environment validation
   src/crypto.ts        Password hashing, token, key encryption

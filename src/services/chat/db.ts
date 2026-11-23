@@ -71,6 +71,7 @@ interface ChatDB extends DBSchema {
 let dbPromise: Promise<IDBPDatabase<ChatDB>> | null = null
 
 // 每个操作拿到连接后立即创建事务；IndexedDB 按创建顺序执行范围重叠的事务，读取总能看到之前发起的写入。
+// 库名沿用旧名：它是本地缓存的标识，改名只会让已有缓存失效（服务端仍是真相源）。
 const getDB = () =>
   (dbPromise ??= openDB<ChatDB>('chat-demo', DB_VERSION, {
     upgrade(db, _oldVersion, _newVersion, tx) {

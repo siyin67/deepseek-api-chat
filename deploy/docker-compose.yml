@@ -20,8 +20,9 @@ services:
   # 应用：同源提供前端静态文件与 /api（含流式 /api/sessions/:id/turns）
   app:
     # 两条路选一条：
-    # A. 本机构建（默认）——需要至少 2 GB 内存 + swap，否则 tsc / rspack 会被 OOM 杀掉
-    # B. 用 CI 构建好的镜像——把下面 build: 四行注释掉，并打开 image: 那一行
+    # A. 本机构建（默认）——需要 2 GB 以上内存 + swap，否则 tsc / rspack 会被 OOM 杀掉
+    # B. 用 CI 构建好的镜像——把下面 image: 那一行的注释去掉即可（build: 可以保留：
+    #    docker compose pull app 拉镜像；up 时本地已有镜像就不会再构建）
     #    镜像由 .github/workflows/docker.yml 在 push 到 main 时自动构建并推到 GHCR
     # image: ${APP_IMAGE:-ghcr.io/siyin67/deepseek-api-chat:latest}
     build:

@@ -6,9 +6,12 @@ import type { FastifyReply, FastifyRequest } from 'fastify'
 import { hashToken } from './crypto.js'
 import type { Database } from './db.js'
 
+export type UserRole = 'admin' | 'user'
+
 export interface AuthedUser {
   id: string
   email: string
+  role: UserRole
 }
 
 declare module 'fastify' {
@@ -34,6 +37,16 @@ export function badRequest(code = 'invalid_request', message?: string): ApiError
 
 export function unauthorized(code = 'unauthorized', message?: string): ApiError {
   return new ApiError(401, code, message)
+}
+
+export function forbidden(code = 'forbidden', message?: string): ApiError {
+  return new ApiError(403, code, message)
+}
+
+/** 管理员专用接口的统一守卫。 */
+export function requireAdmin(user: AuthedUser): AuthedUser {
+  if (user.role !== 'admin') throw forbidden('admin_required', '需要管理员权限')
+  return user
 }
 
 export function notFound(message = '资源不存在'): ApiError {
@@ -71,15 +84,22 @@ export function bearerToken(request: FastifyRequest): string | null {
   return match?.[1] ?? null
 }
 
-/** 校验登录凭证（滑动续期：每次使用刷新 last_used_at）。 */
+/** 校验登录凭证（滑动续期：每次使用刷新 last_used_at）。停用账号一律拒绝。 */
 export async function authenticate(
   request: FastifyRequest,
   db: Database,
 ): Promise<AuthedUser> {
   const token = bearerToken(request)
   if (!token) throw unauthorized()
-  const rows = await db.query<{ id: string; email: string; token_id: string; expires_at: Date }>(
-    `SELECT u.id, u.email, t.id AS token_id, t.expires_at
+  const rows = await db.query<{
+    id: string
+    email: string
+    role: UserRole
+    disabled: boolean
+    token_id: string
+    expires_at: Date
+  }>(
+    `SELECT u.id, u.email, u.role, u.disabled, t.id AS token_id, t.expires_at
        FROM auth_tokens t JOIN users u ON u.id = t.user_id
       WHERE t.token_hash = $1`,
     [hashToken(token)],
@@ -90,11 +110,13 @@ export async function authenticate(
     await db.query('DELETE FROM auth_tokens WHERE id = $1', [row.token_id])
     throw unauthorized('unauthorized', '登录已过期，请重新登录')
   }
+  if (row.disabled) throw forbidden('account_disabled', '账号已被停用，请联系管理员')
   void db.query('UPDATE auth_tokens SET last_used_at = now() WHERE id = $1', [row.token_id]).catch(
     () => undefined,
   )
-  request.user = { id: row.id, email: row.email }
-  return { id: row.id, email: row.email }
+  const user: AuthedUser = { id: row.id, email: row.email, role: row.role === 'admin' ? 'admin' : 'user' }
+  request.user = user
+  return user
 }
 
 export function requireUser(request: FastifyRequest): AuthedUser {

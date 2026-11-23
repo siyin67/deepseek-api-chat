@@ -1,9 +1,12 @@
 import { create } from 'zustand'
 import { ApiError, apiRequest, setAuthToken, setUnauthorizedHandler } from './api/client.js'
 
+export type UserRole = 'admin' | 'user'
+
 export interface AuthUser {
   id: string
   email: string
+  role: UserRole
 }
 
 /** 服务端模型 Key 状态：只有掩码，明文永远不下发 */
@@ -99,10 +102,15 @@ export const login = async (email: string, password: string): Promise<void> => {
   await refreshModelKey()
 }
 
-export const register = async (email: string, password: string): Promise<void> => {
+/** 注册：需要邀请口令；口令正确且是首个账号时会成为超级管理员 */
+export const register = async (
+  email: string,
+  password: string,
+  registrationCode: string
+): Promise<void> => {
   const payload = await apiRequest<SessionPayload>('/auth/register', {
     method: 'POST',
-    json: { email, password },
+    json: { email, password, registrationCode },
   })
   applySession(payload)
   await refreshModelKey()
@@ -134,6 +142,9 @@ export const refreshModelKey = async (): Promise<ModelKeyStatus | null> => {
 
 /** 是否已具备可用的模型 Key；没有时由设置面板引导填写 */
 export const hasModelKey = (): boolean => useAuth.getState().modelKey?.configured === true
+
+/** 当前账号是否超级管理员（决定是否显示管理页） */
+export const isAdmin = (): boolean => useAuth.getState().user?.role === 'admin'
 
 // 凭证过期或被吊销：任何带凭证的请求收到 401 都退回登录页，避免一直报错
 setUnauthorizedHandler(() => {

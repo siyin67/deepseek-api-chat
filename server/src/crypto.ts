@@ -50,6 +50,27 @@ export function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex')
 }
 
+/** 注册口令：去掉容易混淆的 0/O/1/I，按大写生成，手抄也不会错。 */
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+
+export function createRegistrationCode(length = 8): string {
+  const bytes = randomBytes(length)
+  let code = ''
+  for (const byte of bytes) {
+    code += CODE_ALPHABET[byte % CODE_ALPHABET.length]
+  }
+  return code
+}
+
+/** 口令比较：忽略大小写与空白，避免用户手抄时的大小写问题；用定长比较防时序侧信道。 */
+export function matchesRegistrationCode(input: string, expected: string): boolean {
+  const normalize = (value: string) => Buffer.from(value.trim().toUpperCase(), 'utf8')
+  const left = normalize(input)
+  const right = normalize(expected)
+  if (left.length !== right.length) return false
+  return timingSafeEqual(left, right)
+}
+
 export function encryptSecret(plain: string, key: Buffer): string {
   const iv = randomBytes(12)
   const cipher = createCipheriv('aes-256-gcm', key, iv)

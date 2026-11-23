@@ -8,9 +8,9 @@ import {
   IconLightOutline16,
   IconSettingsOutline16,
   IconUploadOutline14,
+  IconUsersOutline16,
 } from '../base/icons.js'
 import {
-  BackupError,
   clearHistory,
   exportHistory,
   importHistory,
@@ -28,17 +28,20 @@ import {
   useSettings,
   type ThemePreference,
 } from '../../services/settings.js'
-import { useTranslate, type TranslationKey, type TranslationMessage } from '../../i18n/index.js'
+import { useTranslate, type TranslationKey } from '../../i18n/index.js'
 import { Button } from '../base/Button.js'
 import { Modal } from '../base/Modal.js'
 import { Select } from '../base/Select.js'
 import { showToast } from '../base/toastState.js'
+import { AdminPanel } from './AdminPanel.js'
 import { ApiKeyConfirm, ApiKeyField, useApiKeyEditor } from './ApiKeyField.js'
+import { SettingCell, errorStatus, type Status } from './SettingCell.js'
 import { closeSettings, useSettingsDialog, type SettingsSection } from './settingsDialogState.js'
 import styles from './Settings.module.css'
 
 /**
- * 设置弹窗：分「通用设置」（主题、语言、朗读音色、位置）与「数据管理」（API Key、导入、导出、删除）。
+ * 设置弹窗：分「通用设置」（账号、主题、语言、朗读音色、位置）、「数据管理」（API Key、导入、导出、删除）
+ * 与管理（仅超级管理员可见：注册开关、注册口令、账号列表）。
  * 桌面端为居中弹窗、左侧导航；移动端为底部弹层、导航横排在内容上方
  */
 export const SettingsDialog = () => {
@@ -46,20 +49,31 @@ export const SettingsDialog = () => {
   return open ? <SettingsContent /> : null
 }
 
-const sections: { value: SettingsSection; label: TranslationKey; icon: ReactNode }[] = [
-  {
-    value: 'general',
-    label: 'settingDialogAsideGeneralOptionLabel',
-    icon: <IconSettingsOutline16 />,
-  },
-  { value: 'data', label: 'settingDialogAsideDataOptionLabel', icon: <IconDataOutline16 /> },
-]
-
 const SettingsContent = () => {
   const t = useTranslate()
   const isMobile = useIsMobile()
+  const isAdmin = useAuth((state) => state.user?.role === 'admin')
+  const sections: { value: SettingsSection; label: TranslationKey; icon: ReactNode }[] = [
+    {
+      value: 'general',
+      label: 'settingDialogAsideGeneralOptionLabel',
+      icon: <IconSettingsOutline16 />,
+    },
+    { value: 'data', label: 'settingDialogAsideDataOptionLabel', icon: <IconDataOutline16 /> },
+    ...(isAdmin
+      ? [
+          {
+            value: 'admin' as SettingsSection,
+            label: 'settingDialogAsideAdminOptionLabel' as TranslationKey,
+            icon: <IconUsersOutline16 />,
+          },
+        ]
+      : []),
+  ]
   // 打开时按调用方指定的分组选中，之后在弹窗内切换
   const [section, setSection] = useState(() => useSettingsDialog.getState().section)
+  // 指定分组不可用时（例如开了管理页却没权限）回落到通用设置
+  const activeSection = sections.some((item) => item.value === section) ? section : 'general'
   // 切换分组不丢失正在输入的 API Key 与导入状态
   const apiKeyEditor = useApiKeyEditor()
   const historyImport = useHistoryImport()
@@ -85,8 +99,8 @@ const SettingsContent = () => {
               key={item.value}
               type="button"
               role="tab"
-              aria-selected={section === item.value}
-              className={clsx(styles.navItem, section === item.value && styles.navItemActive)}
+              aria-selected={activeSection === item.value}
+              className={clsx(styles.navItem, activeSection === item.value && styles.navItemActive)}
               onClick={() => setSection(item.value)}
             >
               {item.icon}
@@ -95,7 +109,7 @@ const SettingsContent = () => {
           ))}
         </div>
         <div role="tabpanel" className={styles.content}>
-          {section === 'general' ? (
+          {activeSection === 'general' ? (
             <>
               <AccountSetting />
               <ThemeSetting />
@@ -103,6 +117,8 @@ const SettingsContent = () => {
               <TtsVoiceSetting />
               <LocationSetting />
             </>
+          ) : activeSection === 'admin' ? (
+            <AdminPanel />
           ) : (
             <>
               <ApiKeyField editor={apiKeyEditor} />
@@ -420,49 +436,6 @@ const ThemeSetting = () => {
           </button>
         ))}
       </div>
-    </div>
-  )
-}
-
-/** `reason` 为失败原因的文案 key，展示时按当前语言翻译后填入 `message` 参数。 */
-type Status = (TranslationMessage & { error?: boolean; reason?: TranslationKey }) | null
-
-/** 导出失败附带原因：预期的错误用对应文案作原因，其他错误用错误信息。 */
-const errorStatus = (key: TranslationKey, error: unknown): Status => ({
-  key,
-  ...(error instanceof BackupError
-    ? { reason: error.key }
-    : { params: { message: error instanceof Error ? error.message : String(error) } }),
-  error: true,
-})
-
-const SettingCell = ({
-  label,
-  description,
-  status,
-  action,
-  className,
-}: {
-  label: string
-  description?: string
-  status: Status
-  action: ReactNode
-  className?: string
-}) => {
-  const t = useTranslate()
-  return (
-    <div className={clsx(styles.cell, styles.row, className)}>
-      <div className={styles.text}>
-        <div className={styles.label}>{label}</div>
-        {status || description ? (
-          <div className={clsx(styles.description, status?.error && styles.error)}>
-            {status
-              ? t(status.key, status.reason ? { message: t(status.reason) } : status.params)
-              : description}
-          </div>
-        ) : null}
-      </div>
-      {action}
     </div>
   )
 }

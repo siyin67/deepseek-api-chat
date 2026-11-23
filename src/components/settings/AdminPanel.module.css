@@ -1,0 +1,52 @@
+/* 管理页：与设置其他分组共用行式布局，只补充口令、分组标题与状态提示 */
+.codeActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.code {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--dsw-alias-bg-layer-3);
+  color: var(--dsw-alias-label-primary);
+  font-family: var(--ds-font-family-code);
+  font-size: 13px;
+  line-height: 20px;
+  letter-spacing: 0.06em;
+}
+
+.groupTitle {
+  flex-shrink: 0;
+  margin-top: 4px;
+  padding: 16px 0 4px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.hint {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 8px;
+  padding: 10px 0;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.more {
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 12px 0 16px;
+}
+
+.userActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

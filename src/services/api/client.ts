@@ -111,10 +111,16 @@ export const request = async (url: string, init: RequestInit = {}): Promise<Resp
     throw new ApiError('network', error instanceof Error ? error.message : String(error))
   }
   if (!response.ok) {
-    if (response.status === 401 && authToken && !isAuthEndpoint(url)) {
+    const error = await readErrorResponse(response)
+    // 凭证失效、或账号被管理员停用：都退回登录页，避免页面一直报错
+    if (
+      authToken &&
+      !isAuthEndpoint(url) &&
+      (response.status === 401 || error.code === 'account_disabled')
+    ) {
       unauthorizedHandler?.()
     }
-    throw await readErrorResponse(response)
+    throw error
   }
   return response
 }
@@ -179,6 +185,70 @@ export const uploadFile = async (
 export const deleteFile = async (fileId: string): Promise<void> => {
   await request(`${API_BASE}/files/${encodeURIComponent(fileId)}`, { method: 'DELETE' })
 }
+
+/** 公开的登录页配置：是否开放注册（关闭时不显示注册入口） */
+export const fetchAuthConfig = async (
+  signal?: AbortSignal
+): Promise<{ allowRegistration: boolean }> => await apiRequest('/auth/config', { signal })
+
+export interface AdminUser {
+  id: string
+  email: string
+  role: 'admin' | 'user'
+  disabled: boolean
+  createdAt: number
+  sessionCount: number
+  lastUsedAt: number | null
+}
+
+export interface AdminUserPage {
+  users: AdminUser[]
+  selfId: string
+  nextCursor: string | null
+}
+
+export interface AdminSettings {
+  allowRegistration: boolean
+  registrationCode: string
+  userCount: number
+  adminCount: number
+}
+
+/** GET /api/admin/users（游标分页，只返回账号元数据） */
+export const fetchAdminUsers = async (
+  cursor?: string | null,
+  signal?: AbortSignal
+): Promise<AdminUserPage> =>
+  await apiRequest(
+    `/admin/users${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`,
+    { signal }
+  )
+
+/** PATCH /api/admin/users/{id}：停用 / 启用 */
+export const setAdminUserDisabled = async (
+  userId: string,
+  disabled: boolean
+): Promise<AdminUser> => {
+  const payload = await apiRequest<{ user: AdminUser }>(
+    `/admin/users/${encodeURIComponent(userId)}`,
+    { method: 'PATCH', json: { disabled } }
+  )
+  return payload.user
+}
+
+/** DELETE /api/admin/users/{id}：连同该账号的会话、消息一起删除 */
+export const deleteAdminUser = async (userId: string): Promise<void> => {
+  await apiRequest(`/admin/users/${encodeURIComponent(userId)}`, { method: 'DELETE' })
+}
+
+export const fetchAdminSettings = async (signal?: AbortSignal): Promise<AdminSettings> =>
+  await apiRequest('/admin/settings', { signal })
+
+/** PUT /api/admin/settings：registrationCode 传 null 表示重新随机生成 */
+export const saveAdminSettings = async (patch: {
+  allowRegistration?: boolean
+  registrationCode?: string | null
+}): Promise<AdminSettings> => await apiRequest('/admin/settings', { method: 'PUT', json: patch })
 
 export interface TurnRequest {
   sessionId: string

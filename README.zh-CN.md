@@ -27,7 +27,7 @@ cd server && npm run dev          # 终端一
 pnpm dev                          # 终端二，/api 会代理到 :3000
 ```
 
-打开 http://localhost:8090 ，注册账号后，在「设置 → 数据管理」填写自己的模型 Key，或在服务端配置 `DEEPSEEK_API_KEY` 作为兜底。
+打开 http://localhost:8090 ，注册账号（注册口令由服务端首次启动时生成并打印在日志里，也可用 `REGISTRATION_CODE` 指定）后，在「设置 → 数据管理」填写自己的模型 Key，或在服务端配置 `DEEPSEEK_API_KEY` 作为兜底。
 
 类型检查：前端 `pnpm type`，服务端 `cd server && npm run build`。
 
@@ -39,6 +39,7 @@ pnpm dev                          # 终端二，/api 会代理到 :3000
 - Markdown、代码高亮、KaTeX 公式和 Mermaid 图表。
 - 简体中文与英文、浅色与深色主题、移动端布局、位置设置、历史导入导出。
 - 邮箱 + 密码账号；会话、消息与加密后的模型 Key 均存服务端，跨设备同步。
+- 注册需要邀请口令，**第一个注册的账号是超级管理员**：可在「设置 → 管理」里查看账号列表、停用或删除账号、开关注册、查看与更换注册口令。
 
 ## 数据
 

@@ -32,6 +32,8 @@ services:
       APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:?请先执行 openssl rand -base64 32 并写入 deploy/.env}
       AUTH_TOKEN_TTL_DAYS: ${AUTH_TOKEN_TTL_DAYS:-30}
       ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
+      # 注册口令（首次启动写入数据库）；留空则随机生成并打印在启动日志里
+      REGISTRATION_CODE: ${REGISTRATION_CODE:-}
       # 可选的服务端兜底 Key：用户没自设 Key 时使用，接口只返回掩码
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
       DEEPSEEK_API_BASE: ${DEEPSEEK_API_BASE:-https://api.deepseek.com}

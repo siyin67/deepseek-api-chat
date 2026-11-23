@@ -45,9 +45,19 @@ deploy/
 
    首次启动时应用会自动建表（幂等），无需手动执行 SQL 迁移。此时应用已监听在宿主机 `127.0.0.1:3000`（可改 `APP_PORT`），由下面第 5 步的 Nginx 对外提供访问。
 
-3. **注册账号**
+3. **取注册口令并注册账号**
 
-   打开 `https://<域名>/`，在登录页切到「注册」，用邮箱 + 密码（≥ 8 位）注册。第一个账号注册完成后，建议把 `.env` 里的 `ALLOW_REGISTRATION` 改成 `false` 并 `docker compose up -d` 重启，关闭公开注册。
+   注册新账号需要邀请口令，口令在首次启动时生成并打印在日志里：
+
+   ```bash
+   docker compose logs app | grep 注册口令        # 形如 {"registrationCode":"ABCD2345"}
+   ```
+
+   想自己指定就把 `.env` 里的 `REGISTRATION_CODE` 填上（6–32 位大写字母/数字/短横线），**只在首次启动写入数据库**，之后以管理页面为准。
+
+   打开 `https://<域名>/`，在登录页切到「注册」，填邮箱 + 密码（≥ 8 位）+ 注册口令。**第一个注册成功的账号自动成为超级管理员**，可以进入「设置 → 管理」查看账号列表、停用/删除账号、开关注册、查看与更换注册口令。
+
+   之后如不再需要开放注册，在管理页把「开放注册」关掉即可（立即生效，无需重启；`.env` 里的 `ALLOW_REGISTRATION` 只作为首次启动的默认值）。
 
 4. **配置模型 Key**
 
@@ -195,7 +205,8 @@ docker compose up -d --build
 | `DATABASE_POOL_SIZE` | 否 | `10` | 连接池上限 |
 | `APP_ENCRYPTION_KEY` | **是** | — | 32 字节（base64 或 64 位 hex），模型 Key 的加密主密钥。**丢失后已保存的 Key 无法解密** |
 | `AUTH_TOKEN_TTL_DAYS` | 否 | `30` | 登录凭证有效期（天） |
-| `ALLOW_REGISTRATION` | 否 | `true` | 是否允许注册新账号 |
+| `ALLOW_REGISTRATION` | 否 | `true` | 是否允许注册新账号（仅首次启动的默认值，之后以管理页面为准） |
+| `REGISTRATION_CODE` | 否 | 随机生成 | 注册邀请口令（6–32 位大写字母/数字/短横线），留空则启动时生成并打印在日志里；仅首次启动写入数据库 |
 | `DEEPSEEK_API_KEY` | 否 | 空 | 服务端兜底模型 Key（不下发浏览器，仅接口返回掩码） |
 | `DEEPSEEK_API_BASE` | 否 | `https://api.deepseek.com` | 上游 API 地址 |
 | `UPSTREAM_TIMEOUT_MS` | 否 | `600000` | 单轮上游请求超时（毫秒） |

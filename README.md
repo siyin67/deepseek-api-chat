@@ -27,7 +27,7 @@ cd server && npm run dev          # terminal 1
 pnpm dev                          # terminal 2, proxies /api to :3000
 ```
 
-Open http://localhost:8090, register an account, then either set your own model key under Settings → Data or provide `DEEPSEEK_API_KEY` on the server as a fallback.
+Open http://localhost:8090, register an account (the registration code is generated on the server's first start and printed to its log, or set it yourself with `REGISTRATION_CODE`), then either set your own model key under Settings → Data or provide `DEEPSEEK_API_KEY` on the server as a fallback.
 
 Type checks: `pnpm type` (front-end) and `cd server && npm run build` (server).
 
@@ -39,6 +39,7 @@ Type checks: `pnpm type` (front-end) and `cd server && npm run build` (server).
 - Markdown, syntax highlighting, KaTeX math, and Mermaid diagrams.
 - Simplified Chinese and English, light and dark themes, mobile layouts, location settings, and chat history import and export.
 - Email + password accounts; conversations, messages, and the encrypted model key are stored server-side and synced across devices.
+- Signing up requires an invitation code, and **the first account becomes the super admin**: Settings → Admin lists accounts, disables or deletes them, toggles registration, and shows or rotates the registration code.
 
 ## Data and storage
 

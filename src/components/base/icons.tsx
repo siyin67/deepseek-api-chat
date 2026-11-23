@@ -510,6 +510,25 @@ export const IconPhotoErrorFill20 = () => (
   </svg>
 )
 
+/** 账号管理图标：两个人物轮廓，用于设置里的「管理」分组 */
+export const IconUsersOutline16 = () => (
+  <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="5.9" cy="5.4" r="2.2" stroke="currentColor" strokeWidth="1.3" />
+    <path
+      d="M1.9 13.1c0-2.13 1.79-3.5 4-3.5s4 1.37 4 3.5"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+    />
+    <path
+      d="M10.5 3.6a2.05 2.05 0 0 1 0 3.9M12 9.85c1.36.37 2.2 1.42 2.2 2.85"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+    />
+  </svg>
+)
+
 /** 错误提示图标：圆环 + 感叹号，颜色跟随 currentColor */
 export const IconToastError16 = () => (
   <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">

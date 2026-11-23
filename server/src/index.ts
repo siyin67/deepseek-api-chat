@@ -9,6 +9,8 @@ import multipart from '@fastify/multipart'
 import fastifyStatic from '@fastify/static'
 import { loadConfig } from './config.js'
 import { openDatabase } from './db.js'
+import { ensureAppSettings } from './appSettings.js'
+import { registerAdminRoutes } from './routes/admin.js'
 import { registerAuthRoutes } from './routes/auth.js'
 import { registerFileRoutes } from './routes/files.js'
 import { registerModelKeyRoutes } from './routes/modelKey.js'
@@ -22,6 +24,8 @@ const appRoot = path.resolve(import.meta.dirname, '../..')
 async function main(): Promise<void> {
   const config = loadConfig()
   const db = await openDatabase(config.databaseUrl)
+  // 站点设置（是否开放注册 / 注册口令）首次启动写入数据库，之后以数据库为准
+  const { settings, generatedCode } = await ensureAppSettings(db, config)
 
   const app = Fastify({
     logger: { level: config.logLevel },
@@ -41,7 +45,8 @@ async function main(): Promise<void> {
 
   app.get('/api/health', async () => ({ ok: true, now: Date.now() }))
 
-  registerAuthRoutes(app, { db, config })
+  registerAuthRoutes(app, { db, config, settings })
+  registerAdminRoutes(app, { db, settings })
   registerModelKeyRoutes(app, { db, config })
   registerSessionRoutes(app, { db, config })
   registerTurnRoutes(app, { db, config })
@@ -94,6 +99,13 @@ async function main(): Promise<void> {
 
   await app.listen({ port: config.port, host: '0.0.0.0' })
   app.log.info({ port: config.port, webDistDir }, 'server ready')
+  if (!settings.allowRegistration) {
+    app.log.info('注册已关闭（管理员可在「设置 → 管理」中开启）')
+  } else if (generatedCode) {
+    app.log.info({ registrationCode: settings.registrationCode }, '已生成注册口令，注册新账号需要填写')
+  } else {
+    app.log.info('注册已开放，注册口令见「设置 → 管理」')
+  }
 }
 
 main().catch((error: unknown) => {

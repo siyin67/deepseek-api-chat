@@ -385,3 +385,17 @@ docker compose -f deploy/docker-compose.yml up -d
 **回滚**：新增目录（`server/`、`deploy/`）与新增前端文件整体删除即恢复纯前端形态；修改到的既有文件均可逐文件还原（`git checkout -- <file>`）。
 
 **验收自检**（不依赖 Docker）：`tsc --noEmit` 通过、`readServerSentEvents` 未改动、`branches.ts`/`reply.ts` 行为由共享单份实现保证、Key 字符串在 `src/` 中零出现（grep 校验）、SSE 路由与 nginx 配置逐项对照 §5。
+
+---
+
+## 10. 实现期补充：账号体系与超级管理员（2026-11 追加）
+
+需求来源：「注册需要额外填写口令；第一个注册的账号成为超级管理员；管理页可查看账号、启用/停用/删除，并开关注册」。
+
+- **注册口令**存 `app_settings`（`allow_registration` / `registration_code` 两个键），首次启动用 `ALLOW_REGISTRATION` / `REGISTRATION_CODE` 兜底写入，之后一律以库为准：管理页改完立即生效，无需重启。`REGISTRATION_CODE` 留空时随机生成 8 位口令并打印到启动日志。
+- **首个账号即管理员**：注册事务内先取 `pg_advisory_xact_lock(hashtext('chat-demo:register'))`，再 `SELECT count(*) FROM users`，为 0 时写入 `role='admin'`，避免并发下产生两个管理员。之后注册的账号一律 `role='user'`。
+- **停用**：`users.disabled=true` 时 `authenticate` 直接返回 403 `account_disabled`（token 保留，重新启用即恢复），前端把它与 401 一样处理——清 token 回登录页。
+- **删除**：走 `ON DELETE CASCADE`（会话、消息、token、模型 Key 一并清理）；管理页禁止停用/删除自己。
+- **接口**：`GET /api/auth/config`（公开，是否开放注册）、`POST /api/auth/register` 增加 `registrationCode`、`GET /api/admin/users`（游标分页）、`PATCH /api/admin/users/:id`、`DELETE /api/admin/users/:id`、`GET|PUT /api/admin/settings`。
+- **界面**：登录页注册模式多一个「注册口令」输入（关闭注册时隐藏注册入口）；设置对话框新增「管理」分组（仅管理员可见），含注册开关、口令查看/复制/重置、账号列表（启用/停用/删除）。
+- 口令为共享邀请码而非用户密钥，故明文存库、仅对管理员返回；比较时 trim + 大写后用 `timingSafeEqual` 定长比较。

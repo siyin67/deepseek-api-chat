@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { ApiError } from '../../services/api/client.js'
+import { useEffect, useState } from 'react'
+import { ApiError, fetchAuthConfig } from '../../services/api/client.js'
 import { login, register } from '../../services/auth.js'
 import { Button } from '../base/Button.js'
 import { useTranslate } from '../../i18n/index.js'
@@ -21,6 +21,10 @@ const describeAuthError = (
         return t('loginEmailTaken')
       case 'registration_disabled':
         return t('loginRegistrationDisabled')
+      case 'invalid_registration_code':
+        return t('loginInvalidCode')
+      case 'account_disabled':
+        return t('loginAccountDisabled')
       case 'rate_limited':
         return t('loginRateLimited')
       case 'invalid_email':
@@ -45,8 +49,27 @@ export const LoginView = () => {
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [code, setCode] = useState('')
+  // null = 还没问到服务端；false 时隐藏注册入口（管理员关闭了注册）
+  const [allowRegistration, setAllowRegistration] = useState<boolean | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    void fetchAuthConfig()
+      .then((config) => {
+        if (alive) {
+          setAllowRegistration(config.allowRegistration)
+        }
+      })
+      .catch(() => {
+        // 取不到配置时保持「可以注册」，让服务端自己拒绝
+      })
+    return () => {
+      alive = false
+    }
+  }, [])
 
   const submit = async () => {
     if (busy) {
@@ -61,15 +84,21 @@ export const LoginView = () => {
       setError(t('loginPasswordTooShort'))
       return
     }
+    const registrationCode = code.trim()
+    if (mode === 'register' && !registrationCode) {
+      setError(t('loginCodeRequired'))
+      return
+    }
     setBusy(true)
     setError(null)
     try {
       if (mode === 'login') {
         await login(address, password)
       } else {
-        await register(address, password)
+        await register(address, password, registrationCode)
       }
       setPassword('')
+      setCode('')
     } catch (e) {
       setError(describeAuthError(e, t, mode))
     } finally {
@@ -112,6 +141,20 @@ export const LoginView = () => {
               onChange={(event) => setPassword(event.target.value)}
             />
           </label>
+          {mode === 'register' ? (
+            <label className={styles.field}>
+              <input
+                type="text"
+                name="registrationCode"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder={t('loginCodePlaceholder')}
+                value={code}
+                disabled={busy}
+                onChange={(event) => setCode(event.target.value)}
+              />
+            </label>
+          ) : null}
           {error ? (
             <div className={styles.error} role="alert">
               {error}
@@ -123,17 +166,19 @@ export const LoginView = () => {
               : t(mode === 'login' ? 'loginSubmit' : 'loginRegisterSubmit')}
           </Button>
         </form>
-        <button
-          type="button"
-          className={styles.switch}
-          disabled={busy}
-          onClick={() => {
-            setMode(mode === 'login' ? 'register' : 'login')
-            setError(null)
-          }}
-        >
-          {t(mode === 'login' ? 'loginToRegister' : 'loginToLogin')}
-        </button>
+        {allowRegistration === false ? null : (
+          <button
+            type="button"
+            className={styles.switch}
+            disabled={busy}
+            onClick={() => {
+              setMode(mode === 'login' ? 'register' : 'login')
+              setError(null)
+            }}
+          >
+            {t(mode === 'login' ? 'loginToRegister' : 'loginToLogin')}
+          </button>
+        )}
       </div>
     </div>
   )

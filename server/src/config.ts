@@ -10,7 +10,10 @@ export interface AppConfig {
   /** 32 字节密钥，用于 AES-256-GCM 加密模型 API Key。 */
   encryptionKey: Buffer
   tokenTtlDays: number
+  /** 首次启动时写入 app_settings 的默认值；之后以数据库里的设置为准。 */
   allowRegistration: boolean
+  /** 首次启动时写入 app_settings 的注册口令；留空则随机生成（管理员页可见）。 */
+  registrationCode: string | null
   /** 服务端兜底 Key（用户未自设时使用），仅驻留内存，任何接口都不返回。 */
   fallbackApiKey: string | null
   apiBase: string
@@ -71,6 +74,7 @@ export function loadConfig(): AppConfig {
     encryptionKey: secretKey('APP_ENCRYPTION_KEY'),
     tokenTtlDays: int('AUTH_TOKEN_TTL_DAYS', 30),
     allowRegistration: bool('ALLOW_REGISTRATION', true),
+    registrationCode: process.env.REGISTRATION_CODE ? process.env.REGISTRATION_CODE.trim() : null,
     fallbackApiKey: process.env.DEEPSEEK_API_KEY ? process.env.DEEPSEEK_API_KEY : null,
     apiBase: (process.env.DEEPSEEK_API_BASE || 'https://api.deepseek.com').replace(/\/+$/, ''),
     upstreamTimeoutMs: int('UPSTREAM_TIMEOUT_MS', 600_000),

@@ -10,8 +10,23 @@ CREATE TABLE IF NOT EXISTS users (
   email         text NOT NULL,
   email_lower   text NOT NULL UNIQUE,
   password_hash text NOT NULL,
+  -- 第一个注册的账号为 admin，可进入「管理」页查看/停用/删除账号、开关注册
+  role          text NOT NULL DEFAULT 'user',
+  -- 停用后不能登录，已签发的凭证也会被拒绝
+  disabled      boolean NOT NULL DEFAULT false,
   created_at    timestamptz NOT NULL DEFAULT now(),
   updated_at    timestamptz NOT NULL DEFAULT now()
+);
+
+-- 已有部署补列（幂等）
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'user';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS disabled boolean NOT NULL DEFAULT false;
+
+-- 运行期可改的站点设置（目前：是否开放注册、注册口令）。管理员在「管理」页修改。
+CREATE TABLE IF NOT EXISTS app_settings (
+  key        text PRIMARY KEY,
+  value      jsonb NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS auth_tokens (

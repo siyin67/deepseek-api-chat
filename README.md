@@ -55,7 +55,7 @@ Settings → Data → Delete all chats clears all conversations on the server an
 
 ## Deployment
 
-Docker deployment files live in [`deploy/`](deploy/README.md): a multi-stage `Dockerfile`, `docker-compose.yml` (app + PostgreSQL + Caddy), a `Caddyfile` that disables buffering and compression for the streaming endpoint, and `.env.example`. Start-up instructions and the full environment variable table are in [deploy/README.md](deploy/README.md).
+Docker deployment files live in [`deploy/`](deploy/README.md): a multi-stage `Dockerfile`, `docker-compose.yml` (app + PostgreSQL, with the app port published to `127.0.0.1`), a ready-to-use `nginx.conf` for a host-level Nginx that terminates HTTPS and disables buffering for the streaming endpoint, an optional `Caddyfile` for running the proxy as a container instead, and `.env.example`. Start-up instructions and the full environment variable table are in [deploy/README.md](deploy/README.md).
 
 ## Development
 

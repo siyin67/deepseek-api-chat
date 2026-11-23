@@ -55,7 +55,7 @@ pnpm dev                          # 终端二，/api 会代理到 :3000
 
 ## 部署
 
-Docker 部署文件位于 [`deploy/`](deploy/README.md)：多阶段 `Dockerfile`、`docker-compose.yml`（应用 + PostgreSQL + Caddy）、对流式接口关闭缓冲与压缩的 `Caddyfile`，以及 `.env.example`。首次启动步骤与完整环境变量说明见 [deploy/README.md](deploy/README.md)。
+Docker 部署文件位于 [`deploy/`](deploy/README.md)：多阶段 `Dockerfile`、`docker-compose.yml`（应用 + PostgreSQL，应用端口只发布到 `127.0.0.1`）、给宿主机 Nginx 直接用的 `nginx.conf`（负责 HTTPS 终止并对流式接口关闭缓冲与压缩）、不想在宿主机装 Nginx 时可选的 `Caddyfile`，以及 `.env.example`。首次启动步骤与完整环境变量说明见 [deploy/README.md](deploy/README.md)。
 
 ## 开发
 

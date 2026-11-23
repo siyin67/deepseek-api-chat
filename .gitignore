@@ -1,0 +1,35 @@
+# ---- 依赖 ----
+node_modules/
+server/node_modules/
+
+# ---- 构建产物 ----
+dist/
+server/dist/
+build/
+*.tsbuildinfo
+
+# ---- 本地缓存与日志 ----
+.npm-cache/
+.pnpm-store/
+.cache/
+*.log
+
+# ---- 环境变量（示例文件保留）----
+.env
+.env.*
+!.env.example
+deploy/.env
+
+# ---- 临时文件与系统垃圾 ----
+tmp/
+.DS_Store
+Thumbs.db
+
+# ---- 编辑器 ----
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# ---- 覆盖率 ----
+coverage/

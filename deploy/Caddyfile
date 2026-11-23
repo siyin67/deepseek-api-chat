@@ -1,0 +1,33 @@
+# 反向代理 + HTTPS 终止：Caddy 自动申请并续期证书（域名解析到本机时）
+# 只写域名即走 HTTPS；写 :80 或 IP 时不启用自动 HTTPS，适合内网 / 首次试跑
+{
+	# 不对外暴露管理接口
+	admin off
+}
+
+{$SITE_ADDRESS} {
+	# 聊天流式接口：单独一条，关闭压缩与缓冲，超时按一轮长回答设置
+	handle /api/* {
+		reverse_proxy app:3000 {
+			# -1 = 每次写入立即 flush，避免攒包导致前端整段延迟输出
+			flush_interval -1
+			transport http {
+				dial_timeout 10s
+				read_timeout 1h
+				write_timeout 1h
+			}
+		}
+	}
+
+	# 其余请求：前端静态资源，可以正常压缩与缓存
+	handle {
+		encode zstd gzip
+		reverse_proxy app:3000 {
+			flush_interval -1
+			transport http {
+				dial_timeout 10s
+				read_timeout 1h
+			}
+		}
+	}
+}

@@ -1,0 +1,73 @@
+name: chat-demo
+
+services:
+  # PostgreSQL：会话、消息与账号的唯一真相源；数据放命名卷持久化
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-chatdemo}
+      POSTGRES_USER: ${POSTGRES_USER:-chatdemo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?请在 deploy/.env 中设置 POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-chatdemo} -d ${POSTGRES_DB:-chatdemo}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # 应用：同源提供前端静态文件与 /api（含流式 /api/sessions/:id/turns）
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      DATABASE_URL: postgres://${POSTGRES_USER:-chatdemo}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-chatdemo}
+      DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-10}
+      # 模型 Key 的加密主密钥：只在服务端使用，丢失后已保存的 Key 无法解密
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:?请先执行 openssl rand -base64 32 并写入 deploy/.env}
+      AUTH_TOKEN_TTL_DAYS: ${AUTH_TOKEN_TTL_DAYS:-30}
+      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
+      # 可选的服务端兜底 Key：用户没自设 Key 时使用，接口只返回掩码
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_API_BASE: ${DEEPSEEK_API_BASE:-https://api.deepseek.com}
+      UPSTREAM_TIMEOUT_MS: ${UPSTREAM_TIMEOUT_MS:-600000}
+      CONTEXT_TOKEN_BUDGET: ${CONTEXT_TOKEN_BUDGET:-120000}
+      SESSION_PAGE_SIZE: ${SESSION_PAGE_SIZE:-30}
+      MESSAGE_PAGE_SIZE: ${MESSAGE_PAGE_SIZE:-30}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-64}
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-}
+      TRUST_PROXY: 'true'
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - '3000'
+
+  # 反向代理与 HTTPS 终止
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      # 域名（如 chat.example.com）即自动申请证书；留空或写 :80 时只提供 HTTP
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

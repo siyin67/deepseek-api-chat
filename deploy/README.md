@@ -191,6 +191,65 @@ docker compose up -d --build
 
 数据库表结构由服务端启动时以 `CREATE TABLE IF NOT EXISTS` 保证幂等；如需新增列，需自行扩展 `server/src/schema.ts`。
 
+## 小内存机器：不要在这台服务器上构建
+
+`docker compose up -d --build` 会在容器里跑 `pnpm build`（rspack）和 `tsc`，峰值内存约 1–1.5 GB。
+**1–2 GB 内存且没有 swap 的 VPS 会被打满**，表现为：构建卡在 `RUN pnpm build` 几十分钟、`load average` 冲到 40+、`wa` 80%+、SSH 连不上（ping 仍有响应），最后构建被杀且没有产出新镜像。
+
+先确认是不是老镜像还在跑：
+
+```bash
+docker image inspect deepseek-api-chat-app:latest --format 'Created={{.Created}}'
+docker compose exec app grep -c "return await fn" server/dist/http.js   # 修复应 >= 1
+```
+
+### 方案 A：加 swap 后在后台构建（本机继续用 build）
+
+```bash
+# 1) 2 GB swap（一次性，写进 fstab 让它跟随机器重启）
+sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
+sudo mkswap /swapfile && sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+free -h | grep -i swap
+
+# 2) 后台构建，日志落文件（关掉 SSH 也不会中断）
+cd deploy
+nohup docker compose build app > /tmp/build.log 2>&1 &
+disown
+
+# 3) 每隔几分钟看一眼
+grep -E "naming to|ERROR" /tmp/build.log | tail -3
+
+# 4) 出现 naming to ... done 之后
+docker compose up -d
+```
+
+构建卡死时（`Ctrl+C` 只断开 CLI，构建仍在服务端跑）：
+
+```bash
+sudo pkill -9 -f rspack-node
+sudo pkill -9 -f "tsc -p tsconfig.json"
+docker system prune -f
+```
+
+### 方案 B：用 CI 构建好的镜像（推荐，服务器零编译）
+
+仓库自带 `.github/workflows/docker.yml`：push 到 `main` 时在 GitHub 的机器上构建并推到
+`ghcr.io/<你的用户名>/deepseek-api-chat:latest`，服务器只 pull。
+
+1. GitHub 仓库页面 → **Actions** 里等 `docker` 工作流变绿；
+2. 首次使用需要让服务器能拉取镜像，二选一：
+   - 把 GHCR 上的 package 设为公开：仓库主页右侧 **Packages** → 该镜像 → *Package settings* → *Change visibility* → Public；
+   - 或者服务器上登录一次（用个人访问令牌，勾选 `read:packages`）：`echo <TOKEN> | docker login ghcr.io -u <用户名> --password-stdin`；
+3. 改 `deploy/docker-compose.yml`：注释掉 `app` 下的 `build:` 四行，打开 `image:` 那行（默认已是 `ghcr.io/siyin67/deepseek-api-chat:latest`，按需改用户名）；
+4. 以后每次更新只需要：
+
+```bash
+cd deploy
+docker compose pull
+docker compose up -d
+```
+
 ## 环境变量说明
 
 | 变量 | 必填 | 默认 | 说明 |

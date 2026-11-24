@@ -465,6 +465,35 @@ const fetchChanges = async (): Promise<SessionSummary[]> => {
   return readSummaryState()
 }
 
+/** 一次问服务端多少个会话 id 还在（分批避免请求过大）。 */
+const LOOKUP_BATCH = 200
+
+/**
+ * 清掉「本地有缓存、但服务端已经没有了」的会话。
+ * 只在拉第一页元数据后执行：此时收到的墓碑最多只有一个「上次同步之后」的窗口，
+ * 更早被删掉的会话（换设备、升级前删的）不会出现在增量里，只能主动问一次。
+ */
+const pruneMissingSessions = async (page: SessionSummary[]): Promise<void> => {
+  const cached = await readSummaryState()
+  const onPage = new Set(page.map((summary) => summary.id))
+  const candidates = cached.map((summary) => summary.id).filter((id) => !onPage.has(id))
+  if (candidates.length === 0) {
+    return
+  }
+  const missing: string[] = []
+  for (let index = 0; index < candidates.length; index += LOOKUP_BATCH) {
+    const ids = candidates.slice(index, index + LOOKUP_BATCH)
+    const result = await apiRequest<{ missing: string[] }>('/sessions/lookup', {
+      method: 'POST',
+      json: { ids },
+    })
+    missing.push(...result.missing)
+  }
+  for (const id of missing) {
+    await purgeLocalSession(id)
+  }
+}
+
 /** 后台增量刷新会话元数据（列表已在界面上时用）。 */
 export const refreshSummaries = (): Promise<void> => {
   if (summaryRefresh) {
@@ -481,6 +510,7 @@ export const refreshSummaries = (): Promise<void> => {
         summaryCursor = page.next
         storeSyncState()
         await writeSummaries(page.summaries)
+        await pruneMissingSessions(page.summaries)
       }
       await notifySummaries()
     } catch (error) {

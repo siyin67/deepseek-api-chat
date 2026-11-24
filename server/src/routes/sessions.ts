@@ -175,6 +175,33 @@ export function registerSessionRoutes(
     }),
   )
 
+  /**
+   * 存在性查询：客户端把缓存里的会话 id 拿来问「这些还在吗」。
+   * 用来清掉别的设备早已删除、而本机只拉过第一页元数据因此收不到墓碑的残留。
+   */
+  app.post(
+    '/api/sessions/lookup',
+    handler(async (request: FastifyRequest) => {
+      const user = await currentUser(request, db)
+      const body = request.body as { ids?: unknown } | null
+      const raw = body?.ids
+      if (!Array.isArray(raw)) throw badRequest('invalid_body', 'ids 必须是数组')
+      const ids = [
+        ...new Set(raw.filter((value): value is string => typeof value === 'string' && isUuid(value))),
+      ].slice(0, 500)
+      if (ids.length === 0) {
+        return { missing: [] as string[] }
+      }
+      const rows = await db.query<{ id: string }>(
+        `select id from chat_sessions
+          where user_id = $1 and deleted_at is null and id = any($2::uuid[])`,
+        [user.id, ids],
+      )
+      const alive = new Set(rows.map((row) => row.id))
+      return { missing: ids.filter((id) => !alive.has(id)) }
+    }),
+  )
+
   /** 新建会话（客户端生成 id，服务端幂等接收）。 */
   app.post(
     '/api/sessions',

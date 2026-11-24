@@ -411,18 +411,31 @@ const ensureSessionLoaded = (id: string): Promise<void> => {
   return load.promise
 }
 
-/** 切回会话时后台校验增量：服务端元数据比缓存新才重新拉一页详情。 */
+/** 切回会话时后台校验增量：服务端元数据与本地已对齐的版本不同就重新拉一页详情。 */
 const syncSessionDetail = async (id: string): Promise<void> => {
   const summary = get().sessions.find((session) => session.id === id)
   const cached = getSession(id)
   if (!summary || !cached || getStreamController(id) || deletingSessions.has(id)) {
     return
   }
-  if (summary.updatedAt <= cached.updatedAt) {
+  // 用「上次与服务端对齐时服务端记录的 updatedAt」比较：本地会话的 updatedAt 会被列表元数据覆盖，
+  // 拿它比较永远相等；而两次时钟之间有偏差时用 > 比较会漏掉别的设备的改动。
+  const synced = await db.serverUpdatedAt(id)
+  if (summary.updatedAt === synced) {
     return
   }
   const fresh = await db.refreshSession(id)
-  if (!fresh || getStreamController(id) || get().importingHistory) {
+  if (!fresh) {
+    // 拉不到详情且本地缓存也没了：会话在别的设备上被删过，把它从列表里摘掉
+    if (!(await db.hasLocalSession(id))) {
+      set((state) => ({
+        sessions: state.sessions.filter((item) => item.id !== id),
+        activeId: state.activeId === id ? null : state.activeId,
+      }))
+    }
+    return
+  }
+  if (getStreamController(id) || get().importingHistory) {
     return
   }
   updateSession(id, () => settleInterrupted(normalizeSession(fresh)))
@@ -475,6 +488,23 @@ export const loadMoreSessions = async (): Promise<boolean> => {
   } catch (error) {
     db.reportStorageError('load more sessions')(error)
     return false
+  }
+}
+
+/** 回到页面 / 窗口重新获得焦点时校验增量：别的设备写过的会话会在这里被拉下来。 */
+export const revalidate = async (): Promise<void> => {
+  if (!get().ready || get().importingHistory) {
+    return
+  }
+  try {
+    await db.refreshSummaries()
+  } catch (error) {
+    db.reportStorageError('revalidate sessions')(error)
+    return
+  }
+  const activeId = get().activeId
+  if (activeId) {
+    await syncSessionDetail(activeId)
   }
 }
 
@@ -564,8 +594,8 @@ export const selectSession = (id: string) => {
   if (!get().importingHistory && get().sessions.some((session) => session.id === id)) {
     touchSession(id)
     set({ activeId: id })
-    void ensureSessionLoaded(id)
-    void syncSessionDetail(id)
+    // 缓存读完再校验增量：冷启动时 sessionCache 还是空的，提前校验会因为拿不到缓存直接返回
+    void ensureSessionLoaded(id).then(() => syncSessionDetail(id))
     trimSessionCache()
   }
 }

@@ -9,6 +9,7 @@ import {
   initChat,
   resetChat,
   retrySaveSessions,
+  revalidate,
   selectSession,
   useChatStore,
 } from '../services/chat/store.js'
@@ -93,6 +94,24 @@ export const App = () => {
       ensureApiKey()
     }
   }, [authStatus, modelKey])
+
+  // 切回标签页 / 窗口重新获得焦点时增量同步一次，另一台设备写的内容不用手动刷新
+  useEffect(() => {
+    if (authStatus !== 'authenticated') {
+      return
+    }
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void revalidate()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
+    }
+  }, [authStatus])
 
   // 启动时先校验本地凭证，避免已登录用户看到登录界面闪一下
   if (authStatus === 'unknown') {

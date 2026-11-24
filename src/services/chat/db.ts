@@ -422,7 +422,8 @@ const fetchChanges = async (): Promise<SessionSummary[]> => {
   return readSummaryState()
 }
 
-const refreshSummaries = (): Promise<void> => {
+/** 后台增量刷新会话元数据（列表已在界面上时用）。 */
+export const refreshSummaries = (): Promise<void> => {
   if (summaryRefresh) {
     return summaryRefresh
   }
@@ -558,6 +559,11 @@ export const refreshSession = async (id: string): Promise<Session | undefined> =
     const detail = await apiRequest<{ session: WireDetail }>(`/sessions/${encodeURIComponent(id)}`)
     return await absorbDetail(detail.session)
   } catch (error) {
+    // 会话已在别的设备上删掉：清掉本地缓存，避免界面上留一个点进去就报错的幽灵会话
+    if (error instanceof ApiError && error.status === 404) {
+      await purgeLocalSession(id)
+      return undefined
+    }
     reportStorageError('refresh session')(error)
     return undefined
   }
@@ -566,6 +572,17 @@ export const refreshSession = async (id: string): Promise<Session | undefined> =
 /** 是否还有更早的历史可以继续往上翻。 */
 export const canLoadEarlier = async (id: string): Promise<boolean> =>
   (await (await getDB()).get('syncState', id))?.hasEarlier === true
+
+/** 本地缓存里还有没有这个会话（用于判断刷新失败是不是「已被别的设备删掉」）。 */
+export const hasLocalSession = async (id: string): Promise<boolean> =>
+  Boolean(await (await getDB()).get('sessions', id))
+
+/**
+ * 上次与服务端对齐时记录的会话更新时间（服务端时钟）。
+ * 与列表里的 updatedAt 不一致说明别的设备改过，需要重新拉详情。
+ */
+export const serverUpdatedAt = async (id: string): Promise<number> =>
+  (await (await getDB()).get('syncState', id))?.serverUpdatedAt ?? 0
 
 /** 向上翻一页历史消息，合并进缓存后返回新会话；没有更多时返回 undefined。 */
 export const loadEarlierMessages = async (id: string): Promise<Session | undefined> => {
@@ -698,18 +715,8 @@ export const renameSession = async (id: string, title: string): Promise<void> =>
   })
 }
 
-/** 删除会话：先删服务端（真相源），成功后再清本地缓存与原件。 */
-export const deleteSession = async (sessionId: string): Promise<void> => {
-  await enqueue(sessionId, async () => {
-    try {
-      await apiRequest(`/sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE' })
-    } catch (error) {
-      // 已经不存在时视为删除成功，避免本地残留幽灵会话
-      if (!(error instanceof ApiError) || error.status !== 404) {
-        throw error
-      }
-    }
-  })
+/** 只清本地缓存（不动服务端）：会话在别的设备上被删掉时用。 */
+const purgeLocalSession = async (sessionId: string): Promise<void> => {
   const database = await getDB()
   const tx = database.transaction(['sessions', 'sessionSummaries', 'files', 'syncState'], 'readwrite')
   await Promise.all([
@@ -732,6 +739,21 @@ export const deleteSession = async (sessionId: string): Promise<void> => {
     })(),
     tx.done,
   ])
+}
+
+/** 删除会话：先删服务端（真相源），成功后再清本地缓存与原件。 */
+export const deleteSession = async (sessionId: string): Promise<void> => {
+  await enqueue(sessionId, async () => {
+    try {
+      await apiRequest(`/sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE' })
+    } catch (error) {
+      // 已经不存在时视为删除成功，避免本地残留幽灵会话
+      if (!(error instanceof ApiError) || error.status !== 404) {
+        throw error
+      }
+    }
+  })
+  await purgeLocalSession(sessionId)
 }
 
 /** 清空本地缓存（退出登录时调用），服务端数据不受影响。 */

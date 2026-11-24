@@ -138,8 +138,49 @@ export const watchSessionSummaries = (listener: ((summary: SessionSummary[]) => 
   summariesListener = listener
 }
 
-let summaryCursor: string | null = null
-let lastSummarySync = 0
+// 增量游标要跨刷新保存：否则刷新后 lastSummarySync 归零，只会重拉第一页元数据，
+// 别的设备删掉的会话拿不到墓碑记录，会一直留在侧边栏（点进去才 404）。
+const SYNC_CURSOR_KEY = 'chat-demo:summary-cursor'
+const SYNC_TIME_KEY = 'chat-demo:summary-sync-time'
+
+const readStoredCursor = (): string | null => {
+  try {
+    return localStorage.getItem(SYNC_CURSOR_KEY)
+  } catch {
+    return null
+  }
+}
+
+const readStoredSyncTime = (): number => {
+  try {
+    const raw = localStorage.getItem(SYNC_TIME_KEY)
+    const value = raw === null ? 0 : Number(raw)
+    return Number.isFinite(value) && value > 0 ? value : 0
+  } catch {
+    return 0
+  }
+}
+
+/** 把游标与上次同步时间写回 localStorage；写不进去就退化为仅内存。 */
+const storeSyncState = (): void => {
+  try {
+    if (summaryCursor) {
+      localStorage.setItem(SYNC_CURSOR_KEY, summaryCursor)
+    } else {
+      localStorage.removeItem(SYNC_CURSOR_KEY)
+    }
+    if (lastSummarySync > 0) {
+      localStorage.setItem(SYNC_TIME_KEY, String(lastSummarySync))
+    } else {
+      localStorage.removeItem(SYNC_TIME_KEY)
+    }
+  } catch {
+    // 隐私模式或存储被禁用，忽略。
+  }
+}
+
+let summaryCursor: string | null = readStoredCursor()
+let lastSummarySync = readStoredSyncTime()
 let summaryRefresh: Promise<void> | null = null
 
 const storedSummary = (session: Session): StoredSessionSummary => ({
@@ -387,6 +428,7 @@ const fetchPage = async (cursor: string | null): Promise<{ summaries: SessionSum
     `/sessions${query}`
   )
   lastSummarySync = page.serverTime
+  storeSyncState()
   return { summaries: page.sessions.map(toSessionSummary), next: page.nextCursor }
 }
 
@@ -395,6 +437,7 @@ const fetchChanges = async (): Promise<SessionSummary[]> => {
     `/sessions/changes?since=${encodeURIComponent(new Date(lastSummarySync).toISOString())}`
   )
   lastSummarySync = changes.serverTime
+  storeSyncState()
   const database = await getDB()
   const removed: string[] = []
   const updated: SessionSummary[] = []
@@ -429,11 +472,14 @@ export const refreshSummaries = (): Promise<void> => {
   }
   summaryRefresh = (async () => {
     try {
-      if (lastSummarySync > 0) {
+      // 有同步时间但本地一条摘要都没有（缓存被清过）时不能只拉增量，否则列表会是空的。
+      const cached = await readSummaryState()
+      if (lastSummarySync > 0 && cached.length > 0) {
         await fetchChanges()
       } else {
         const page = await fetchPage(null)
         summaryCursor = page.next
+        storeSyncState()
         await writeSummaries(page.summaries)
       }
       await notifySummaries()
@@ -473,6 +519,7 @@ export const loadMoreSessionSummaries = async (): Promise<SessionSummary[] | nul
   }
   const page = await fetchPage(summaryCursor)
   summaryCursor = page.next
+  storeSyncState()
   await writeSummaries(page.summaries)
   await notifySummaries()
   const merged = await readSummaryState()
@@ -776,6 +823,7 @@ export const wipeCache = async (): Promise<void> => {
   ])
   summaryCursor = null
   lastSummarySync = 0
+  storeSyncState()
 }
 
 const putFiles = async (store: 'files' | 'filesStaging', files: StoredFile[]) => {

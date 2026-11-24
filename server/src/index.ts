@@ -106,6 +106,16 @@ async function main(): Promise<void> {
   } else {
     app.log.info('注册已开放，注册口令见「设置 → 管理」')
   }
+  // 老库升级上来时所有账号都是 role='user'，没人能进管理页；这里提示一次怎么提权
+  const [counts] = await db.query<{ admins: string; users: string }>(
+    `select count(*) filter (where role = 'admin') as admins, count(*) as users from users`
+  )
+  if (counts && Number(counts.users) > 0 && Number(counts.admins) === 0) {
+    app.log.warn(
+      "当前没有任何管理员账号，管理页对所有人不可见；挑一个已有账号提权：" +
+        "update users set role = 'admin' where email_lower = 'you@example.com';"
+    )
+  }
 }
 
 main().catch((error: unknown) => {
